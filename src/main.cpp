@@ -1,15 +1,20 @@
 #include <M5Core2.h>
+#include "efont.h"
+#include "efontESP32.h"
+#include "efontEnableJa.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include "loadenv.hpp"
+#include "prompts.h"
 
 // Gemini API
 const char* apiKey = "AIzaSyAH5KmrBD57mRvebeLynmWZc6SOFjDKZjk";
 
 void setup() {
   M5.begin();
-  M5.Lcd.setTextSize(2);
+
+  M5.Lcd.setTextSize(1);
   M5.Lcd.print("Connecting to WiFi");
 
   // 環境変数読み込み
@@ -39,18 +44,15 @@ void setup() {
   http.addHeader("x-goog-api-key", api_key);
   http.setTimeout(30000); // -11エラーを抑制
 
-  String payload = R"({
-    "contents": [
-      {
-        "parts": [
-          {
-            "text": "Explain how AI works in a few words"
-          }
-        ]
-      }
-    ]
-  })";
-  
+  // JSONドキュメントの作成
+  DynamicJsonDocument doc(8192);
+  JsonObject contents = doc.createNestedArray("contents").createNestedObject();
+  contents["parts"][0]["text"] = "Explain how AI works in a few words";
+  JsonObject systemInst = doc.createNestedObject("system_instruction");
+  systemInst["parts"][0]["text"] = String(SYSTEM_INSTRUCTION); // SYSTEM_INSTRUCTIONを使用
+  String payload;
+  serializeJson(doc, payload);
+
   int httpResponseCode = http.POST(payload);
   
   if (httpResponseCode > 0) {
@@ -74,10 +76,11 @@ void setup() {
     // レスポンスからテキストを抽出
     if (doc["candidates"].size() > 0) {
       const char* replyText = doc["candidates"][0]["content"]["parts"][0]["text"];
-      M5.Lcd.println("Gemini says:");
-      M5.Lcd.println(replyText);
+      M5.Lcd.println("Bot-tan says:");
+      printEfont(const_cast<char*>(replyText));
     } else {
       M5.Lcd.println("No response received");
+      Serial.println(response);
     }
     
   } else {
