@@ -10,7 +10,7 @@ void setupI2SMic() {
     .sample_rate = I2S_SAMPLE_RATE,
     .bits_per_sample = i2s_bits_per_sample_t(I2S_SAMPLE_BITS),
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-    .communication_format = I2S_COMM_FORMAT_I2S,
+    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 4,
     .dma_buf_len = I2S_BUFFER_SIZE,
