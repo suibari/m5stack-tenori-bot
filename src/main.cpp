@@ -1,12 +1,14 @@
 #include <M5Core2.h>
-#include "efont.h"
-#include "efontESP32.h"
-#include "efontEnableJa.h"
+#include <SPI.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include "loadenv.hpp"
 #include "prompts.h"
+
+// フォント設定
+TFT_eSPI tft = M5.Lcd;
+#include "efontESP32.h"
 
 // Gemini API
 const char* apiKey = "AIzaSyAH5KmrBD57mRvebeLynmWZc6SOFjDKZjk";
@@ -14,8 +16,8 @@ const char* apiKey = "AIzaSyAH5KmrBD57mRvebeLynmWZc6SOFjDKZjk";
 void setup() {
   M5.begin();
 
+  // フォント準備
   M5.Lcd.setTextSize(1);
-  M5.Lcd.print("Connecting to WiFi");
 
   // 環境変数読み込み
   SPIFFS.begin(true);
@@ -24,9 +26,8 @@ void setup() {
   std::string password = env["WIFI_PASSWORD"];
   String api_key = String(env["GEMINI_API_KEY"].c_str());
 
-  Serial.println(ssid.c_str());
-  Serial.println(password.c_str());
-  Serial.println(api_key);
+  // WiFi接続
+  M5.Lcd.print("Connecting to WiFi");
   WiFi.begin(ssid.c_str(), password.c_str());
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -34,11 +35,9 @@ void setup() {
   }
   M5.Lcd.println("\nConnected!");
 
-  // HTTPClientを使用（chunked transferを自動処理）
+  // HTTPClient準備
   HTTPClient http;
-  
   String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
-  
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("x-goog-api-key", api_key);
@@ -47,14 +46,16 @@ void setup() {
   // JSONドキュメントの作成
   DynamicJsonDocument doc(8192);
   JsonObject contents = doc.createNestedArray("contents").createNestedObject();
-  contents["parts"][0]["text"] = "Explain how AI works in a few words";
+  contents["parts"][0]["text"] = "こんにちは。自己紹介して。";
   JsonObject systemInst = doc.createNestedObject("system_instruction");
   systemInst["parts"][0]["text"] = String(SYSTEM_INSTRUCTION); // SYSTEM_INSTRUCTIONを使用
   String payload;
   serializeJson(doc, payload);
 
+  // HTTP送信
   int httpResponseCode = http.POST(payload);
   
+  // レスポンス処理
   if (httpResponseCode > 0) {
     String response = http.getString();
     
