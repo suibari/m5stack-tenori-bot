@@ -1,17 +1,12 @@
 #include <M5Core2.h>
 #include <base64.h>
-
-// 録音設定
-#define I2S_SAMPLE_RATE     16000
-#define I2S_SAMPLE_BITS     16
-#define I2S_CHANNEL_NUM     I2S_CHANNEL_MONO
-#define I2S_BUFFER_SIZE     1024
-#define MAX_RECORDING_SIZE 32768
+#include "audio_config.hpp"
+#include <play.hpp>
 
 // I2Sマイクのセットアップ
 void setupI2SMic() {
   i2s_config_t i2s_config = {
-    .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX),
+    .mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM),
     .sample_rate = I2S_SAMPLE_RATE,
     .bits_per_sample = i2s_bits_per_sample_t(I2S_SAMPLE_BITS),
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
@@ -25,10 +20,10 @@ void setupI2SMic() {
   };
 
   i2s_pin_config_t pin_config = {
-    .bck_io_num = 0,
-    .ws_io_num = 32,
-    .data_out_num = I2S_PIN_NO_CHANGE,
-    .data_in_num = 33
+    .bck_io_num = CONFIG_I2S_BCK_PIN,
+    .ws_io_num = CONFIG_I2S_LRCK_PIN,
+    .data_out_num = CONFIG_I2S_DATA_PIN,
+    .data_in_num = CONFIG_I2S_DATA_IN_PIN
   };
 
   i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
@@ -61,6 +56,9 @@ String recordAudioAndEncodeBase64() {
   
   i2s_driver_uninstall(I2S_NUM_0);
   M5.Lcd.println("Stopped recording, processing...");
+
+  // test: 再生
+  playAudio(audioData);
 
   // Base64エンコード
   String base64data = base64::encode(audioData.data(), audioData.size());

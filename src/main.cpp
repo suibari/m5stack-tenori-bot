@@ -33,8 +33,11 @@ void setup() {
     M5.Lcd.print(".");
   }
   M5.Lcd.println("Connected to WiFi!");
+
   delay(1000);
+
   M5.Lcd.clear();
+  M5.Lcd.setCursor(0, 0);
   M5.Lcd.println("Touch to start recording...");
 }
 
@@ -57,15 +60,22 @@ void loop() {
     }
 
     M5.Lcd.clear();
+    M5.Lcd.setCursor(0, 0);
     M5.Lcd.println("You:");
     printEfont(const_cast<char*>(recognized.c_str()));
 
-    delay(1000);
-
+    // AI思考時間
     M5.Lcd.clear();
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.print("Bot-tan Thinking...");
+
     String reply = askGemini(recognized, gemini_api_key);
-    M5.Lcd.println("\nBot-tan:");
-    printEfont(const_cast<char*>(reply.c_str()));
+
+    // AI結果表示
+    M5.Lcd.clear();
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.println("Bot-tan:");
+    printEfont(const_cast<char*>(reply.c_str()), 0, 0);
   }
 
   delay(200);
