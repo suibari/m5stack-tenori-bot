@@ -1,8 +1,6 @@
 #include <M5Core2.h>
 #include <SPI.h>
 #include <WiFi.h>
-#include <HTTPClient.h>
-#include <base64.h>
 #include "loadenv.hpp"
 #include "record.hpp"
 #include "stt.hpp"
@@ -74,7 +72,6 @@ void loop() {
     // AI結果表示
     M5.Lcd.clear();
     M5.Lcd.setCursor(0, 0);
-    M5.Lcd.println("Bot-tan:");
     printEfont(const_cast<char*>(reply.c_str()), 0, 0);
   }
 
