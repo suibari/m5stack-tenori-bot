@@ -3,6 +3,8 @@
 #include "audio_config.hpp"
 #include <play.hpp>
 
+#define I2S_MIC_PORT I2S_NUM_0
+
 // I2Sマイクのセットアップ
 void setupI2SMic() {
   i2s_config_t i2s_config = {
@@ -26,9 +28,9 @@ void setupI2SMic() {
     .data_in_num = CONFIG_I2S_DATA_IN_PIN
   };
 
-  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-  i2s_set_pin(I2S_NUM_0, &pin_config);
-  i2s_zero_dma_buffer(I2S_NUM_0);
+  i2s_driver_install(I2S_MIC_PORT, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_MIC_PORT, &pin_config);
+  i2s_zero_dma_buffer(I2S_MIC_PORT);
 }
 
 // 音声を録音してBase64エンコード
@@ -46,7 +48,7 @@ String recordAudioAndEncodeBase64() {
     M5.Lcd.print(".");
 
     size_t bytes_read;
-    esp_err_t result = i2s_read(I2S_NUM_0, buffer, sizeof(buffer), &bytes_read, 100);
+    esp_err_t result = i2s_read(I2S_MIC_PORT, buffer, sizeof(buffer), &bytes_read, 100);
     
     if (result == ESP_OK && bytes_read > 0) {
       // バッファのデータを動的配列に追加
@@ -54,10 +56,15 @@ String recordAudioAndEncodeBase64() {
     }
   }
   
-  i2s_driver_uninstall(I2S_NUM_0);
+  i2s_driver_uninstall(I2S_MIC_PORT);
   M5.Lcd.println("Stopped recording, processing...");
 
   // test: 再生
+  Serial.println("First 16 bytes:");
+  for (int i = 0; i < 16 && i < audioData.size(); i++) {
+    Serial.printf("%02X ", audioData[i]);
+  }
+  Serial.println();
   playAudio(audioData);
 
   // Base64エンコード

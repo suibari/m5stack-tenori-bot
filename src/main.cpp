@@ -9,6 +9,7 @@
 // フォント設定
 TFT_eSPI tft = M5.Lcd;
 #include "efontESP32.h"
+#include <voicevox.hpp>
 
 // 初期化
 void setup() {
@@ -73,6 +74,10 @@ void loop() {
     M5.Lcd.clear();
     M5.Lcd.setCursor(0, 0);
     printEfont(const_cast<char*>(reply.c_str()), 0, 0);
+
+    // VOICEVOX読み上げ
+    String voicevox_api_key = String(env["VOICEVOX_API_KEY"].c_str());
+    playVoiceVox(reply, voicevox_api_key);
   }
 
   delay(200);

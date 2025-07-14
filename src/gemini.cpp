@@ -4,8 +4,6 @@
 #include "prompts.h"
 #include <util.h>
 
-// bool sendChunk(WiFiClientSecure& client, const String& data);
-
 // Geminiへ送信して返答取得
 String askGemini(String text, String gemini_api_key) {
   WiFiClientSecure client;
