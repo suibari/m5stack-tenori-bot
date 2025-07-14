@@ -98,5 +98,5 @@ void playVoiceVox(String text, String api_key) {
   }
 
   Serial.println("PCM size: " + String(pcmData.size()));
-  playAudio(pcmData);  // 再生（ユーザー実装）
+  playAudio(pcmData, 24000);
 }
