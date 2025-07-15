@@ -67,14 +67,18 @@ void playVoiceVox(String text, String api_key) {
 
   // WAVデータ受信
   std::vector<uint8_t> rawWav;
+  uint8_t buffer[256];
+
   while (client.connected() || client.available()) {
-    while (client.available()) {
-      rawWav.push_back(client.read());
+    int len = client.read(buffer, sizeof(buffer));
+    if (len > 0) {
+      rawWav.insert(rawWav.end(), buffer, buffer + len);
+    } else {
+      delay(1);
     }
-    delay(1);
   }
   client.stop();
-  Serial.println("WAV size: " + String(rawWav.size()));
+  Serial.printf("Received %d bytes\n", rawWav.size());
 
   // RIFFヘッダーを探して切り出す
   std::vector<uint8_t> wavData;
