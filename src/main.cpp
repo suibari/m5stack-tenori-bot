@@ -22,8 +22,6 @@ void setup() {
   auto env = loadEnv("/.env");
   std::string ssid = env["WIFI_SSID"];
   std::string password = env["WIFI_PASSWORD"];
-  String gemini_api_key = String(env["GEMINI_API_KEY"].c_str());
-  String google_api_key = String(env["GOOGLE_API_KEY"].c_str());
 
   WiFi.begin(ssid.c_str(), password.c_str());
   M5.Lcd.print("WiFi Connecting");
