@@ -33,6 +33,9 @@ void setup() {
 
   delay(1000);
 
+  initConversation();
+  M5.Lcd.println("initialized conversation!");
+
   M5.Lcd.clear();
   M5.Lcd.setCursor(0, 0);
   M5.Lcd.println("Touch to start recording...");
