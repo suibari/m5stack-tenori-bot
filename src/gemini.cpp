@@ -16,7 +16,7 @@ String askGemini(String text, String gemini_api_key) {
   // JSONペイロードを構築
   DynamicJsonDocument doc(4096);
   JsonObject content = doc.createNestedArray("contents").createNestedObject();
-  content["parts"][0]["text"] = text;
+  content["parts"][0]["text"] = "ユーザの以下の発言に対し、50文字以内で全肯定してください:\n\n" + text + "?";
   
   JsonObject system = doc.createNestedObject("system_instruction");
   system["parts"][0]["text"] = SYSTEM_INSTRUCTION;

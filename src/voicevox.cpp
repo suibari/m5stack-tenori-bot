@@ -41,7 +41,7 @@ bool extractPCMFromWav(const std::vector<uint8_t>& wavData, std::vector<uint8_t>
 }
 
 // VOICEVOXにテキストを送信して再生
-void playVoiceVox(String text, String api_key) {
+void playVoiceVox(String text, String api_key, std::function<void()> onReadyToPlay = nullptr) {
   WiFiClientSecure client;
   client.setInsecure();
 
@@ -99,6 +99,10 @@ void playVoiceVox(String text, String api_key) {
   if (!extractPCMFromWav(wavData, pcmData)) {
     Serial.println("Failed to extract PCM from WAV");
     return;
+  }
+
+  if (onReadyToPlay) {
+    onReadyToPlay();
   }
 
   Serial.println("PCM size: " + String(pcmData.size()));

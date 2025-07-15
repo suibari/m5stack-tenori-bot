@@ -60,6 +60,7 @@ void loop() {
     if (recognized == "") {
       M5.Lcd.clear();
       M5.Lcd.println("Failed to recognize speech");
+      delay(2000);
       return;
     }
 
@@ -67,12 +68,15 @@ void loop() {
     M5.Lcd.drawJpgFile(SPIFFS, "/thinking.jpg");
     String reply = askGemini(recognized, gemini_api_key);
 
-    // TBD: 口パクさせたい
-    M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg");
-
     // VOICEVOX読み上げ
     String voicevox_api_key = String(env["VOICEVOX_API_KEY"].c_str());
-    playVoiceVox(reply, voicevox_api_key);
+    playVoiceVox(
+      reply,
+      voicevox_api_key,
+      []() {
+        M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg");
+      }
+    );
   }
 
   delay(200);
