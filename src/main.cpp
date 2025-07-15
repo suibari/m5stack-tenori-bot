@@ -41,7 +41,14 @@ void setup() {
 // メインループ
 void loop() {
   M5.update();
+
+  // botたん笑顔
+  M5.Lcd.drawJpgFile(SPIFFS, "/smile_close.jpg");
+
   if (M5.Touch.ispressed()) {
+    // botたんヒアリング
+    M5.Lcd.drawJpgFile(SPIFFS, "/hearing.jpg");
+
     String audioBase64 = recordAudioAndEncodeBase64();
     if (audioBase64 == "") return;
 
@@ -56,22 +63,12 @@ void loop() {
       return;
     }
 
-    M5.Lcd.clear();
-    M5.Lcd.setCursor(0, 0);
-    M5.Lcd.println("You:");
-    printEfont(const_cast<char*>(recognized.c_str()));
-
     // AI思考時間
-    M5.Lcd.clear();
-    M5.Lcd.setCursor(0, 0);
-    M5.Lcd.print("Bot-tan Thinking...");
-
+    M5.Lcd.drawJpgFile(SPIFFS, "/thinking.jpg");
     String reply = askGemini(recognized, gemini_api_key);
 
-    // AI結果表示
-    M5.Lcd.clear();
-    M5.Lcd.setCursor(0, 0);
-    printEfont(const_cast<char*>(reply.c_str()), 0, 0);
+    // TBD: 口パクさせたい
+    M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg");
 
     // VOICEVOX読み上げ
     String voicevox_api_key = String(env["VOICEVOX_API_KEY"].c_str());

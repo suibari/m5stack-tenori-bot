@@ -35,8 +35,8 @@ void setupI2SMic() {
 
 // 音声を録音してBase64エンコード
 String recordAudioAndEncodeBase64() {
-  M5.Lcd.clear();
-  M5.Lcd.print("Recording");
+  // M5.Lcd.clear();
+  // M5.Lcd.print("Recording");
 
   setupI2SMic();
 
@@ -45,7 +45,7 @@ String recordAudioAndEncodeBase64() {
   uint8_t buffer[I2S_BUFFER_SIZE];
 
   while (M5.Touch.ispressed() && audioData.size() < MAX_RECORDING_SIZE) {
-    M5.Lcd.print(".");
+    // M5.Lcd.print(".");
 
     size_t bytes_read;
     esp_err_t result = i2s_read(I2S_MIC_PORT, buffer, sizeof(buffer), &bytes_read, 100);
@@ -57,7 +57,7 @@ String recordAudioAndEncodeBase64() {
   }
   
   i2s_driver_uninstall(I2S_MIC_PORT);
-  M5.Lcd.println("Stopped recording, processing...");
+  // M5.Lcd.println("Stopped recording, processing...");
 
   // test: 再生
   Serial.println("First 16 bytes:");
