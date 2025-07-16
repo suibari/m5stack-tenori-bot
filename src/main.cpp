@@ -55,6 +55,9 @@ void loop() {
     String audioBase64 = recordAudioAndEncodeBase64();
     if (audioBase64 == "") return;
 
+    // botたん思考中
+    M5.Lcd.drawJpgFile(SPIFFS, "/thinking.jpg");
+
     auto env = loadEnv("/.env");
     String stt_api_key = String(env["SST_API_KEY"].c_str());
     String gemini_api_key = String(env["GEMINI_API_KEY"].c_str());
@@ -67,8 +70,6 @@ void loop() {
       return;
     }
 
-    // AI思考時間
-    M5.Lcd.drawJpgFile(SPIFFS, "/thinking.jpg");
     String reply = askGemini(recognized, gemini_api_key);
 
     // VOICEVOX読み上げ
@@ -77,7 +78,7 @@ void loop() {
       reply,
       voicevox_api_key,
       []() {
-        M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg");
+        M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg"); // コールバックで渡し、発声直前に画面変える
       }
     );
   }

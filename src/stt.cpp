@@ -3,6 +3,42 @@
 #include <WiFiClientSecure.h>
 #include <base64.h>
 #include <util.h>
+#include <loadenv.hpp>
+
+#define PROJECT_ID "m5stack-gemini"
+#define PHRASE_SET_ID "phrase-set-0" // 別スクリプトで作成したフレーズセットID
+
+// 自前のトークン取得APIにアクセス
+String getToken() {
+  auto env = loadEnv("/.env");
+  std::string token_host = env["SST_GETTOKEN_HOST"];
+
+  WiFiClientSecure client;
+  client.setInsecure();
+  if (!client.connect(token_host.c_str(), 443)) return "";
+
+  client.println("GET /get_token HTTP/1.1");
+  client.println("Host: " + String(token_host.c_str()));
+  client.println("Connection: close");
+  client.println();
+
+  String response = "";
+  while (client.connected()) {
+    while (client.available()) {
+      response += client.readString();
+    }
+  }
+  client.stop();
+
+  int bodyStart = response.indexOf("\r\n\r\n");
+  String body = response.substring(bodyStart + 4);
+
+  DynamicJsonDocument doc(1024);
+  deserializeJson(doc, body);
+  String token = doc["access_token"];
+  
+  return token;
+}
 
 // Google STTへ送信してテキスト取得
 String transcribeSpeech(String base64audio, String google_api_key) {
@@ -16,15 +52,31 @@ String transcribeSpeech(String base64audio, String google_api_key) {
   }
   
   // JSONペイロードの前半・後半部分を準備
-  String jsonPrefix = "{\"config\":{\"encoding\":\"LINEAR16\",\"sampleRateHertz\":16000,\"languageCode\":\"ja-JP\"},\"audio\":{\"content\":\"";
+  String phraseSetPath = "projects/" + String(PROJECT_ID) + "/locations/global/phraseSets/" + String(PHRASE_SET_ID);
+  String jsonPrefix = 
+    "{\"config\":{"
+      "\"encoding\":\"LINEAR16\","
+      "\"sampleRateHertz\":16000,"
+      "\"languageCode\":\"ja-JP\","
+      "\"adaptation\":{"
+        "\"phraseSetReferences\":[\"" + phraseSetPath + "\"]"
+      "}"
+    "},"
+    "\"audio\":{\"content\":\"";
   String jsonSuffix = "\"}}";
   
   // Content-Lengthを計算
   size_t totalLen = jsonPrefix.length() + base64audio.length() + jsonSuffix.length();
   
+  // OAuthトークン取得
+  String token = getToken();
+
   // HTTPヘッダー送信
   String headers = "POST /v1/speech:recognize?key=" + google_api_key + " HTTP/1.1\r\n";
   headers += "Host: speech.googleapis.com\r\n";
+  if (!token.isEmpty()) {
+    headers += "Authorization: Bearer " + token + "\r\n";
+  }
   headers += "Content-Type: application/json\r\n";
   headers += "Content-Length: " + String(totalLen) + "\r\n";
   headers += "Connection: close\r\n\r\n";
