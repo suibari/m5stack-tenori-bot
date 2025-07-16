@@ -25,6 +25,31 @@ String removeChunkHeaderFooter(const String& raw) {
   return raw.substring(headerEnd + 2, footerStart);
 }
 
+String readHttpBody(WiFiClient& client) {
+  String response = "";
+  unsigned long timeout = millis() + 30000;
+
+  while (client.connected() && millis() < timeout) {
+    if (client.available()) {
+      response += client.readString();
+      break;
+    }
+    delay(50);
+  }
+
+  int bodyIndex = response.indexOf("\r\n\r\n");
+  if (bodyIndex == -1) return "";
+
+  String body = response.substring(bodyIndex + 4);
+
+  bool isChunked = response.indexOf("Transfer-Encoding: chunked") != -1;
+  if (isChunked) {
+    return removeChunkHeaderFooter(body);
+  } else {
+    return body;
+  }
+}
+
 String urlEncode(const String& str) {
   String encoded = "";
   char c;

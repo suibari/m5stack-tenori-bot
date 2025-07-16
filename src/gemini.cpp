@@ -76,35 +76,13 @@ String askGemini(String userInput, String gemini_api_key) {
   }
   
   // レスポンス受信
-  String response = "";
-  unsigned long timeout = millis() + 30000;
-  
-  while (client.connected() && millis() < timeout) {
-    if (client.available()) {
-      response += client.readString();
-      break;
-    }
-    delay(100);
-  }
-  
-  client.stop();
-  Serial.println("Gemini Response:");
-  Serial.println(response);
-
-  // HTTPヘッダーをスキップしてJSONボディを取得
-  int bodyIndex = response.indexOf("\r\n\r\n");
-  if (bodyIndex == -1) {
-    Serial.println("Invalid HTTP response (no header-body separator)");
-    return "";
-  }
-  
-  String bodyRaw = response.substring(bodyIndex + 4);
-  String jsonBody = removeChunkHeaderFooter(bodyRaw);
-  Serial.println("JSON Body: " + jsonBody);
+  String body = readHttpBody(client);
+  Serial.println("=== gemini ===");
+  Serial.println("JSON Body: " + body);
   
   // JSON解析
   DynamicJsonDocument result(8192);
-  DeserializationError err = deserializeJson(result, jsonBody);
+  DeserializationError err = deserializeJson(result, body);
   if (err) return "";
   
   String reply = result["candidates"][0]["content"]["parts"][0]["text"].as<String>();

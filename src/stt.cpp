@@ -22,17 +22,8 @@ String getToken() {
   client.println("Connection: close");
   client.println();
 
-  String response = "";
-  while (client.connected()) {
-    while (client.available()) {
-      response += client.readString();
-    }
-  }
-  client.stop();
-
-  int bodyStart = response.indexOf("\r\n\r\n");
-  String body = response.substring(bodyStart + 4);
-
+  String body = readHttpBody(client);
+  
   DynamicJsonDocument doc(1024);
   deserializeJson(doc, body);
   String token = doc["access_token"];
@@ -59,7 +50,7 @@ String transcribeSpeech(String base64audio, String google_api_key) {
       "\"sampleRateHertz\":16000,"
       "\"languageCode\":\"ja-JP\","
       "\"adaptation\":{"
-        "\"phraseSetReferences\":[\"" + phraseSetPath + "\"]"
+        "\"phrase_set_references\":[\"" + phraseSetPath + "\"]"
       "}"
     "},"
     "\"audio\":{\"content\":\"";
@@ -118,35 +109,14 @@ String transcribeSpeech(String base64audio, String google_api_key) {
   }
   
   // レスポンス受信
-  String response = "";
-  unsigned long timeout = millis() + 30000; // 30秒タイムアウト
-  
-  while (client.connected() && millis() < timeout) {
-    if (client.available()) {
-      response += client.readString();
-      break;
-    }
-    delay(100);
-  }
-  
-  client.stop();
-  Serial.println("STT Response:");
-  Serial.println(response);
-  
-  // HTTPヘッダーをスキップしてJSONボディを取得
-  int bodyIndex = response.indexOf("\r\n\r\n");
-  if (bodyIndex == -1) {
-    Serial.println("Invalid HTTP response (no header-body separator)");
-    return "";
-  }
-  
-  String bodyRaw = response.substring(bodyIndex + 4);
-  String jsonBody = removeChunkHeaderFooter(bodyRaw);
-  Serial.println("JSON Body: " + jsonBody);
+  String body = readHttpBody(client);
+
+  Serial.println("=== stt ===");
+  Serial.println("JSON Body: " + body);
 
   // JSON解析
   DynamicJsonDocument doc(8192);
-  DeserializationError err = deserializeJson(doc, jsonBody);
+  DeserializationError err = deserializeJson(doc, body);
   if (err) {
     Serial.println("JSON解析失敗");
     return "";

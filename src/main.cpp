@@ -55,6 +55,9 @@ void loop() {
     String audioBase64 = recordAudioAndEncodeBase64();
     if (audioBase64 == "") return;
 
+    // tic
+    unsigned long start = millis();
+
     // botたん思考中
     M5.Lcd.drawJpgFile(SPIFFS, "/thinking.jpg");
 
@@ -77,8 +80,12 @@ void loop() {
     playVoiceVox(
       reply,
       voicevox_api_key,
-      []() {
+      [start]() {
         M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg"); // コールバックで渡し、発声直前に画面変える
+
+        // toc
+        unsigned long end = millis();
+        Serial.printf("Request took %d ms\n", end - start);
       }
     );
   }
