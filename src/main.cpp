@@ -10,6 +10,7 @@
 TFT_eSPI tft = M5.Lcd;
 #include "efontESP32.h"
 #include <voicevox.hpp>
+#include <sts.hpp>
 
 // 初期化
 void setup() {
@@ -61,25 +62,8 @@ void loop() {
     // botたん思考中
     M5.Lcd.drawJpgFile(SPIFFS, "/thinking.jpg");
 
-    auto env = loadEnv("/.env");
-    String stt_api_key = String(env["SST_API_KEY"].c_str());
-    String gemini_api_key = String(env["GEMINI_API_KEY"].c_str());
-
-    String recognized = transcribeSpeech(audioBase64, stt_api_key);
-    if (recognized == "") {
-      M5.Lcd.clear();
-      M5.Lcd.println("Failed to recognize speech");
-      delay(2000);
-      return;
-    }
-
-    String reply = askGemini(recognized, gemini_api_key);
-
-    // VOICEVOX読み上げ
-    String voicevox_api_key = String(env["VOICEVOX_API_KEY"].c_str());
-    playVoiceVox(
-      reply,
-      voicevox_api_key,
+    speechToSpeech(
+      audioBase64,
       [start]() {
         M5.Lcd.drawJpgFile(SPIFFS, "/smile_open.jpg"); // コールバックで渡し、発声直前に画面変える
 
