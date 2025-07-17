@@ -31,19 +31,35 @@ void speechToSpeech(String base64audio, std::function<void()> onReadyToPlay = nu
   // Base64をチャンク送信
   const size_t chunkSize = 1024;
   for (size_t i = 0; i < base64audio.length(); i += chunkSize) {
-    size_t currentChunkSize = min(chunkSize, base64audio.length() - i);
-    String chunk = base64audio.substring(i, i + currentChunkSize);
-    client.print(chunk);
+    client.print(base64audio.substring(i, i + chunkSize));
   }
   client.print("\"}");
   Serial.println("Request end");
 
   skipResponseHeaders(client);
-  std::vector<uint8_t> pcm = readBody(client);
-  
-  if (onReadyToPlay) onReadyToPlay();
-  playAudio(pcm, 24000);
 
+  // 再生初期化
+  M5.Axp.SetSpkEnable(true);
+  setupI2SPlayback(24000);
+
+  if (onReadyToPlay) onReadyToPlay();
+
+  // ストリーミング再生
+  const size_t bufSize = 512;
+  uint8_t buffer[bufSize];
+  while (client.connected()) {
+    if (client.available()) {
+      size_t len = client.readBytes(buffer, bufSize);
+      if (len > 0) {
+        playAudioStreamChunk(buffer, len);
+      }
+    } else {
+      delay(1);
+    }
+  }
+
+  M5.Axp.SetSpkEnable(false);
+  i2s_driver_uninstall(I2S_PLAYBACK_PORT);
   client.stop();
 }
 

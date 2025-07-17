@@ -12,7 +12,7 @@ void setupI2SPlayback(int sampleRate = I2S_SAMPLE_RATE) {
     .sample_rate = sampleRate,
     .bits_per_sample = i2s_bits_per_sample_t(I2S_SAMPLE_BITS),
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-    .communication_format = I2S_COMM_FORMAT_I2S,
+    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
     .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
     .dma_buf_count = 4,
     .dma_buf_len = I2S_BUFFER_SIZE,
@@ -41,4 +41,15 @@ void playAudio(const std::vector<uint8_t>& audioData, int sampleRate = I2S_SAMPL
   i2s_write(I2S_PLAYBACK_PORT, audioData.data(), audioData.size(), &bytes_written, portMAX_DELAY);
 
   i2s_driver_uninstall(I2S_PLAYBACK_PORT);  // 再生完了後にクリーンアップ
+}
+
+void playAudioStreamChunk(const uint8_t* data, size_t len) {
+  if (data == nullptr || len == 0) return;
+
+  size_t bytes_written = 0;
+  esp_err_t err = i2s_write(I2S_PLAYBACK_PORT, (const char*)data, len, &bytes_written, portMAX_DELAY);
+
+  if (err != ESP_OK) {
+    Serial.printf("i2s_write failed: %d\n", err);
+  }
 }
