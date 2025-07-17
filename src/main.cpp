@@ -3,14 +3,11 @@
 #include <WiFi.h>
 #include "loadenv.hpp"
 #include "record.hpp"
-#include "stt.hpp"
-#include "gemini.hpp"
+#include <sts.hpp>
 
 // フォント設定
 TFT_eSPI tft = M5.Lcd;
 #include "efontESP32.h"
-#include <voicevox.hpp>
-#include <sts.hpp>
 
 // 初期化
 void setup() {
@@ -37,8 +34,6 @@ void setup() {
   initConversation();
   M5.Lcd.println("initialized conversation!");
 
-  M5.Lcd.clear();
-  M5.Lcd.setCursor(0, 0);
   M5.Lcd.println("Touch to start recording...");
 }
 
