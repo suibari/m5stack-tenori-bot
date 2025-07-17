@@ -2,46 +2,49 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <play.hpp>
+#include <util.h>
 
 #define I2S_PLAYBACK_PORT I2S_NUM_0
 
-// STS処理(ストリーミング受信)
+// STS処理
 void speechToSpeech(String base64audio, std::function<void()> onReadyToPlay = nullptr) {
-  HTTPClient http;
-  http.begin("http://192.168.1.200:5050/sts");
-  http.addHeader("Content-Type", "application/json");
-  http.setTimeout(30000);
+  WiFiClient client;
+  const char* host = "192.168.1.200";
+  const uint16_t port = 5050;
 
-  DynamicJsonDocument doc(base64audio.length() + 1024); // ここが少ないとPCMデータが切れてNoneになる
-  doc["audio"] = base64audio;
-  String body;
-  serializeJson(doc, body);
-
-  int res = http.POST(body);
-  if (res == 200) {
-    Serial.println("Received STS response, processing...");
-    WiFiClient* stream = http.getStreamPtr();
-    std::vector<uint8_t> pcm;
-    uint8_t buf[1024];
-    while (stream->connected()) {
-      int len = stream->read(buf, sizeof(buf));
-      if (len > 0) {
-        pcm.insert(pcm.end(), buf, buf + len);
-      } else {
-        delay(1);
-      }
-    }
-
-    if (onReadyToPlay) {
-      onReadyToPlay();
-    }
-
-    playAudio(pcm, 24000);
-  } else {
-    Serial.println("Error during POST");
-    Serial.println(String("Response Code: ") + res);
+  if (!client.connect(host, port)) {
+    Serial.println("Connection failed");
+    return;
   }
-  http.end();
+
+  int contentLength = base64audio.length() + strlen("{\"audio\":\"\"}");
+  String reqStart = String("POST /sts HTTP/1.1\r\n") +
+                    "Host: " + host + "\r\n" +
+                    "Content-Type: application/json\r\n" +
+                    "Connection: close\r\n" +
+                    "Content-Length: " + String(contentLength) + "\r\n\r\n" +
+                    "{\"audio\":\"";
+
+  Serial.println("Request start");
+  client.print(reqStart);
+
+  // Base64をチャンク送信
+  const size_t chunkSize = 1024;
+  for (size_t i = 0; i < base64audio.length(); i += chunkSize) {
+    size_t currentChunkSize = min(chunkSize, base64audio.length() - i);
+    String chunk = base64audio.substring(i, i + currentChunkSize);
+    client.print(chunk);
+  }
+  client.print("\"}");
+  Serial.println("Request end");
+
+  skipResponseHeaders(client);
+  std::vector<uint8_t> pcm = readBody(client);
+  
+  if (onReadyToPlay) onReadyToPlay();
+  playAudio(pcm, 24000);
+
+  client.stop();
 }
 
 void initConversation() {

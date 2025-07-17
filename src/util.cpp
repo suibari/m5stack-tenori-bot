@@ -1,4 +1,5 @@
 #include <WiFiClientSecure.h>
+#include <vector>
 
 // チャンク送信用のヘルパー関数
 bool sendChunk(WiFiClientSecure& client, const String& data) {
@@ -14,40 +15,73 @@ bool sendChunk(WiFiClientSecure& client, const String& data) {
   return true;
 }
 
-String removeChunkHeaderFooter(const String& raw) {
-  int headerEnd = raw.indexOf("\r\n");
-  int footerStart = raw.lastIndexOf("\r\n0\r\n");
-
-  if (headerEnd == -1 || footerStart == -1 || footerStart <= headerEnd) {
-    return "";
-  }
-
-  return raw.substring(headerEnd + 2, footerStart);
-}
-
-String readHttpBody(WiFiClient& client) {
-  String response = "";
-  unsigned long timeout = millis() + 30000;
-
-  while (client.connected() && millis() < timeout) {
-    if (client.available()) {
-      response += client.readString();
+void skipResponseHeaders(WiFiClient& client, unsigned long timeout_ms = 5000) {
+  unsigned long deadline = millis() + timeout_ms;
+  while (millis() < deadline) {
+    String line = client.readStringUntil('\n');
+    line.trim();
+    if (line.length() == 0) {  // 空行＝ヘッダー終端
       break;
     }
-    delay(50);
+  }
+}
+
+// チャンクされたHTTPレスポンスのボディだけを
+// WiFiClientからバイナリで受け取り、チャンクを解除して返す
+std::vector<uint8_t> readChunkedBody(WiFiClient& client, unsigned long timeout_ms = 30000) {
+  std::vector<uint8_t> body;
+  unsigned long deadline = millis() + timeout_ms;
+
+  while (millis() < deadline) {
+    // チャンクサイズ行を読み取る
+    String line = client.readStringUntil('\n');
+    line.trim(); // \rなど除去
+    if (line.length() == 0) continue;
+
+    // 16進数でチャンクサイズを取得
+    int chunkSize = (int) strtol(line.c_str(), nullptr, 16);
+    if (chunkSize == 0) break; // チャンク終了
+
+    // chunkSizeバイトを受け取る
+    int bytesRead = 0;
+    while (bytesRead < chunkSize) {
+      if (client.available()) {
+        int toRead = chunkSize - bytesRead;
+        if (toRead > 512) toRead = 512; // 適当なバッファサイズ
+        uint8_t buffer[512];
+        int len = client.read(buffer, toRead);
+        if (len > 0) {
+          body.insert(body.end(), buffer, buffer + len);
+          bytesRead += len;
+        }
+      } else {
+        delay(1);
+      }
+      if (millis() > deadline) return body; // タイムアウト
+    }
+
+    // チャンク末尾のCRLFを読む（2バイト）
+    client.read(); // \r
+    client.read(); // \n
   }
 
-  int bodyIndex = response.indexOf("\r\n\r\n");
-  if (bodyIndex == -1) return "";
+  return body;
+}
 
-  String body = response.substring(bodyIndex + 4);
+// チャンクでなければ普通に全部読むだけの関数
+std::vector<uint8_t> readBody(WiFiClient& client, unsigned long timeout_ms = 30000) {
+  std::vector<uint8_t> body;
+  unsigned long deadline = millis() + timeout_ms;
 
-  bool isChunked = response.indexOf("Transfer-Encoding: chunked") != -1;
-  if (isChunked) {
-    return removeChunkHeaderFooter(body);
-  } else {
-    return body;
+  while (millis() < deadline) {
+    while (client.available()) {
+      uint8_t b = client.read();
+      body.push_back(b);
+    }
+    if (!client.connected()) break;
+    delay(1);
   }
+  return body;
 }
 
 String urlEncode(const String& str) {
