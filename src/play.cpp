@@ -1,6 +1,7 @@
 #include <M5Core2.h>
 #include <base64.h>
 #include "audio_config.hpp"
+#include <WiFiClient.h>
 
 #define I2S_PLAYBACK_PORT I2S_NUM_0
 
@@ -52,4 +53,57 @@ void playAudioStreamChunk(const uint8_t* data, size_t len) {
   if (err != ESP_OK) {
     Serial.printf("i2s_write failed: %d\n", err);
   }
+}
+
+void playChunkedBody(WiFiClient& client) {
+  M5.Axp.SetSpkEnable(true);
+  setupI2SPlayback(24000);
+
+  while (client.connected()) {
+    // 1. チャンクサイズ行を読み取る（改行まで）
+    String chunkSizeLine = client.readStringUntil('\n');
+    chunkSizeLine.trim();  // \r除去や空白除去
+
+    if (chunkSizeLine.length() == 0) {
+      // 空行はスキップして次へ
+      continue;
+    }
+
+    // 2. 16進数のチャンクサイズをパース
+    size_t chunkSize = strtoul(chunkSizeLine.c_str(), nullptr, 16);
+
+    if (chunkSize == 0) {
+      // サイズ0は終了チャンク
+      break;
+    }
+
+    size_t remaining = chunkSize;
+    const size_t bufSize = 1024;
+    uint8_t buffer[bufSize];
+
+    // 3. chunkSizeバイト分読み込んで再生
+    while (remaining > 0) {
+      size_t toRead = (remaining > bufSize) ? bufSize : remaining;
+
+      // WiFiClient::readBytesは待機もするので安心
+      size_t readLen = client.readBytes(buffer, toRead);
+      if (readLen == 0) {
+        // 何も読めなかったら切断の可能性あり
+        break;
+      }
+
+      playAudioStreamChunk(buffer, readLen);
+
+      remaining -= readLen;
+    }
+
+    // 4. チャンクデータ後のCRLFを読み捨てる（2バイト）
+    if (client.connected()) {
+      client.read(); // \r
+      client.read(); // \n
+    }
+  }
+
+  M5.Axp.SetSpkEnable(false);
+  i2s_driver_uninstall(I2S_PLAYBACK_PORT);
 }

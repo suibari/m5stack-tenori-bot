@@ -18,7 +18,7 @@ void speechToSpeech(String base64audio, std::function<void()> onReadyToPlay = nu
   }
 
   int contentLength = base64audio.length() + strlen("{\"audio\":\"\"}");
-  String reqStart = String("POST /sts HTTP/1.1\r\n") +
+  String reqStart = String("POST /stsWhisper HTTP/1.1\r\n") +
                     "Host: " + host + "\r\n" +
                     "Content-Type: application/json\r\n" +
                     "Connection: close\r\n" +
@@ -36,30 +36,13 @@ void speechToSpeech(String base64audio, std::function<void()> onReadyToPlay = nu
   client.print("\"}");
   Serial.println("Request end");
 
+  // ヘッダースキップ
   skipResponseHeaders(client);
-
-  // 再生初期化
-  M5.Axp.SetSpkEnable(true);
-  setupI2SPlayback(24000);
-
   if (onReadyToPlay) onReadyToPlay();
 
-  // ストリーミング再生
-  const size_t bufSize = 512;
-  uint8_t buffer[bufSize];
-  while (client.connected()) {
-    if (client.available()) {
-      size_t len = client.readBytes(buffer, bufSize);
-      if (len > 0) {
-        playAudioStreamChunk(buffer, len);
-      }
-    } else {
-      delay(1);
-    }
-  }
+  // チャンク再生
+  playChunkedBody(client);
 
-  M5.Axp.SetSpkEnable(false);
-  i2s_driver_uninstall(I2S_PLAYBACK_PORT);
   client.stop();
 }
 

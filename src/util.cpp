@@ -15,14 +15,23 @@ bool sendChunk(WiFiClientSecure& client, const String& data) {
   return true;
 }
 
-void skipResponseHeaders(WiFiClient& client, unsigned long timeout_ms = 5000) {
+void skipResponseHeaders(WiFiClient& client, unsigned long timeout_ms = 30000) {
   unsigned long deadline = millis() + timeout_ms;
   while (millis() < deadline) {
+    if (!client.connected()) break;
+    if (!client.available()) {
+      delay(1);
+      continue;
+    }
     String line = client.readStringUntil('\n');
     line.trim();
-    if (line.length() == 0) {  // 空行＝ヘッダー終端
+
+    if (line.length() == 0) {
+      Serial.println("Headers skipped.");
       break;
     }
+    Serial.print("Header line: ");
+    Serial.println(line);
   }
 }
 
