@@ -57,8 +57,6 @@ void initTouchRecordingState() {
   isVoiceDetected = false;
   
   voiceDetector.stopContinuousRecording(); // I2S音声を止める
-  M5.update();
-  delay(100);                              // I2S停止を待機
   uiManager.showHearingScreen();           // I2S画像を表示
   audioManager.startRecording();
 }
@@ -301,5 +299,5 @@ void loop() {
       break;
   }
   
-  delay(100);
+  delay(10);
 }

@@ -14,7 +14,7 @@ VoiceDetector::VoiceDetector() {
 bool VoiceDetector::init() {
   // I2S設定の初期化
   i2sConfig = {
-    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM),
     .sample_rate = SAMPLE_RATE,
     .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
     .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
@@ -28,7 +28,7 @@ bool VoiceDetector::init() {
   };
   
   pinConfig = {
-    .bck_io_num = 12,      // M5Core2の標準BCLKピン
+    .bck_io_num = -1,       // 内部マイクのため不要
     .ws_io_num = 0,
     .data_out_num = -1,     // 出力は使用しない
     .data_in_num = 34       // M5Core2の標準DINピン
