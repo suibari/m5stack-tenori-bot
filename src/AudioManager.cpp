@@ -136,6 +136,7 @@ void AudioManager::configureI2SForRecording() {
   i2s_driver_uninstall(I2S_NUM_0);
   
   i2sConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM);
+  i2sConfig.sample_rate = 16000;
   i2sConfig.tx_desc_auto_clear = false;
   pinConfig.data_in_num = CONFIG_I2S_DATA_IN_PIN;
 
@@ -151,7 +152,7 @@ void AudioManager::configureI2SForRecording() {
     return;
   }
   
-  // i2s_zero_dma_buffer(I2S_NUM_0);
+  i2s_zero_dma_buffer(I2S_NUM_0);
 }
 
 void AudioManager::configureI2SForPlayback(int sampleRate) {

@@ -9,10 +9,12 @@ private:
     SCREEN_IDLE,
     SCREEN_HEARING,
     SCREEN_THINKING, 
-    SCREEN_SPEAKING
+    SCREEN_SPEAKING,
+    SCREEN_INIT // 起動時
   };
   
   ScreenState currentScreen;
+  TFT_eSprite sprite;
   
 public:
   UIManager();

@@ -1,8 +1,8 @@
 #include "UIManager.h"
 #include <SPIFFS.h>
 
-UIManager::UIManager() {
-  currentScreen = SCREEN_IDLE;
+UIManager::UIManager() : sprite(&M5.Lcd) {
+  currentScreen = SCREEN_INIT;
 }
 
 bool UIManager::init() {
@@ -11,11 +11,11 @@ bool UIManager::init() {
   M5.Lcd.setRotation(1);
   M5.Lcd.fillScreen(BLACK);
   
+  // スプライトを作成
+  sprite.createSprite(M5.Lcd.width(), M5.Lcd.height());
+  
   // タッチパネル初期化
   M5.Touch.begin();
-
-  // 初期画面表示
-  showIdleScreen();
   
   return true;
 }
@@ -37,6 +37,8 @@ void UIManager::showSpeakingScreen() {
 }
 
 void UIManager::changeScreen(ScreenState newScreen, const char* imagePath) {
+  if (currentScreen == newScreen) return;
+
   currentScreen = newScreen;
   
   // 画像を読み込んで表示
@@ -66,14 +68,22 @@ void UIManager::changeScreen(ScreenState newScreen, const char* imagePath) {
 }
 
 bool UIManager::loadImageIfExists(const char* imagePath) {
+  Serial.printf("Attempting to load: %s\n", imagePath);
+  
   // SPIFFS上に画像ファイルが存在するかチェック
   if (!SPIFFS.exists(imagePath)) {
-    Serial.printf("Image file not found: %s\n", imagePath);
+    Serial.printf("❌ Image file not found: %s\n", imagePath);
     return false;
   }
   
-  // JPEGファイルを読み込んで表示
-  M5.Lcd.drawJpgFile(SPIFFS, imagePath);
+  Serial.printf("✅ File exists, loading: %s\n", imagePath);
+  
+  // スプライトに画像を描画
+  sprite.fillSprite(BLACK);
+  sprite.drawJpgFile(SPIFFS, imagePath);
+  sprite.pushSprite(0, 0);
+  
+  Serial.printf("🎨 Image display complete: %s\n", imagePath);
   
   return true;
 }

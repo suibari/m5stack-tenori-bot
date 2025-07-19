@@ -9,6 +9,7 @@ NetworkManager::NetworkManager() {
   responseCapacity = 0;
   responseReady = false;
   isReceivingChunks = false;
+  responseCode = 0;
 }
 
 NetworkManager::~NetworkManager() {
@@ -71,6 +72,11 @@ bool NetworkManager::sendAudioData(uint8_t* audioData, size_t dataSize, const ch
 bool NetworkManager::sendPOSTRequest(const String& url, const String& jsonPayload) {
   WiFiClient client;
 
+  // エラー状態クリア
+  hasErrorFlag = false;
+  responseReady = false;
+  responseCode = 0;
+
   http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
   http.setTimeout(30000); // 30秒タイムアウト
@@ -79,6 +85,7 @@ bool NetworkManager::sendPOSTRequest(const String& url, const String& jsonPayloa
   Serial.printf("Payload size: %d bytes\n", jsonPayload.length());
   
   int httpResponseCode = http.POST(jsonPayload);
+  responseCode = httpResponseCode;
   
   if (httpResponseCode == 200) {
     Serial.println("POST successful, processing response");
@@ -87,6 +94,7 @@ bool NetworkManager::sendPOSTRequest(const String& url, const String& jsonPayloa
     return true;
   } else {
     Serial.printf("POST failed, error code: %d\n", httpResponseCode);
+    hasErrorFlag = true;
     if (httpResponseCode > 0) {
       String response = http.getString();
       Serial.printf("Error response: %s\n", response.c_str());
@@ -191,3 +199,11 @@ void NetworkManager::initConversation() {
   http.end();
 }
 
+bool NetworkManager::hasError() {
+  return hasErrorFlag;
+}
+
+void NetworkManager::clearError() {
+  hasErrorFlag = false;
+  responseCode = 0;
+}

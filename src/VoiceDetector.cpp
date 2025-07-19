@@ -28,10 +28,10 @@ bool VoiceDetector::init() {
   };
   
   pinConfig = {
-    .bck_io_num = 19,
+    .bck_io_num = 12,      // M5Core2の標準BCLKピン
     .ws_io_num = 0,
-    .data_out_num = 22,
-    .data_in_num = 23
+    .data_out_num = -1,     // 出力は使用しない
+    .data_in_num = 34       // M5Core2の標準DINピン
   };
   
   return true;
@@ -47,7 +47,7 @@ void VoiceDetector::startContinuousRecording() {
   lastVoiceTime = 0;
   
   // 音声検出タスクを作成
-  xTaskCreate(continuousRecordingTaskWrapper, "VoiceDetectionTask", 4096, this, 4, NULL);
+  xTaskCreate(continuousRecordingTaskWrapper, "VoiceDetectionTask", 4096, this, 4, &recordingTaskHandle);
   
   Serial.println("Continuous voice detection started");
 }
@@ -57,9 +57,16 @@ void VoiceDetector::stopContinuousRecording() {
   
   isContinuousRecording = false;
   voiceDetected = false;
+
+  // タスクが生成されていれば削除
+  if (recordingTaskHandle != NULL) {
+    vTaskDelete(recordingTaskHandle);
+    recordingTaskHandle = NULL;
+  }
   
   // I2Sドライバを停止
   i2s_driver_uninstall(I2S_NUM_0);
+  delay(50); // I2Sリソース解放を待機
   
   Serial.println("Continuous voice detection stopped");
 }
@@ -143,7 +150,7 @@ void VoiceDetector::continuousRecordingTask() {
     vTaskDelay(pdMS_TO_TICKS(10));
   }
   
-  vTaskDelete(NULL);
+  // vTaskDelete(NULL); // タスクはstopContinuousRecordingで削除される
 }
 
 void VoiceDetector::continuousRecordingTaskWrapper(void* param) {

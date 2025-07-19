@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 #include <driver/i2s.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 class VoiceDetector {
 private:
@@ -21,6 +23,9 @@ private:
   // I2S設定
   i2s_config_t i2sConfig;
   i2s_pin_config_t pinConfig;
+
+  // FreeRTOSタスクハンドル
+  TaskHandle_t recordingTaskHandle;
   
 public:
   VoiceDetector();

@@ -12,6 +12,8 @@ private:
   size_t responseSize;
   size_t responseCapacity;
   bool responseReady;
+  int responseCode;
+  bool hasErrorFlag;
   
   // チャンクデータ処理用
   String currentChunk;
@@ -27,6 +29,8 @@ public:
   uint8_t* getResponseData();
   size_t getResponseSize();
   void initConversation();
+  bool hasError();
+  void clearError();
   
 private:
   bool sendPOSTRequest(const String& url, const String& jsonPayload);
