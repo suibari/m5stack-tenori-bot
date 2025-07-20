@@ -9,7 +9,8 @@
 #define MAX_VOICE_RECORDING_TIME 5000   // 音声起動録音の最大時間（ミリ秒）
 
 // 音声検出設定
-#define VOICE_SILENCE_TIMEOUT 2000  // 無音タイムアウト（ミリ秒）
+#define SOFTWARE_GAIN 2.0 // マイクのソフトウェアゲイン（増幅率）
+#define VOICE_DETECTION_THRESHOLD 3300 // 音声検出の閾値。この値より大きい音を検出すると録音開始: 常時3100~3200くらい
 
 // デバッグ設定
 #define DEBUG_VOICE_DETECTION false

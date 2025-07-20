@@ -67,8 +67,8 @@ void initVoiceRecordingState() {
   isVoiceDetected = true;
   
   voiceDetector.stopContinuousRecording(); // VADタスクが終了するまでブロック
+  uiManager.showHearingScreen();
   audioManager.startRecording();
-  // 常時録音中なので画面は変更しない
 }
 
 void initWaitingResponseState() {

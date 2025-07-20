@@ -1,4 +1,5 @@
 #include "VoiceDetector.h"
+#include "config.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <math.h>
@@ -122,17 +123,27 @@ void VoiceDetector::continuousRecordingTask() {
       }
 
       if (bytesRead > 0) {
+        int16_t* samples = (int16_t*)buffer;
         size_t sampleCount = bytesRead / sizeof(int16_t);
-        float currentVolume = calculateVolume(buffer, sampleCount);
-        
-        averageVolume = (averageVolume * 0.9) + (currentVolume * 0.1);
-        
-        // デバッグ用に現在の音量を表示
-        Serial.printf("Current Volume: %.2f, Bytes Read: %d\n", currentVolume, bytesRead);
 
-        if (currentVolume > VOICE_THRESHOLD) {
+        // ソフトウェアゲインを適用
+        for (size_t i = 0; i < sampleCount; i++) {
+          int32_t amplified_sample = (int32_t)samples[i] * SOFTWARE_GAIN;
+          if (amplified_sample > 32767) amplified_sample = 32767;
+          if (amplified_sample < -32768) amplified_sample = -32768;
+          samples[i] = (int16_t)amplified_sample;
+        }
+
+        float currentVolume = calculateVolume(samples, sampleCount);
+        
+        // デバッグ用に現在の音量とサンプルデータを表示
+        Serial.printf("Volume: %.2f (Gain: x%.1f, Samples: %d, %d, ...)\n", 
+                      currentVolume, SOFTWARE_GAIN, samples[0], samples[1]);
+
+        // 平滑化せず、直接的な音量で判断することで応答性を向上
+        if (currentVolume > VOICE_DETECTION_THRESHOLD) {
           voiceDetected = true;
-          Serial.println("Voice detected - VAD triggered");
+          Serial.printf(">>> Voice detected! (Volume: %.2f > Threshold: %d)\n", currentVolume, VOICE_DETECTION_THRESHOLD);
         }
       }
     }

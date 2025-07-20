@@ -1,4 +1,5 @@
 #include "AudioManager.h"
+#include "config.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <Speaker.h>
@@ -209,6 +210,17 @@ void AudioManager::recordingTask() {
     // Serial.printf("Sample range: %d ~ %d\n", minSample, maxSample);
 
     if (result == ESP_OK && bytesRead > 0) {
+      int16_t* samples = (int16_t*)buffer;
+      size_t sampleCount = bytesRead / sizeof(int16_t);
+
+      // ソフトウェアゲインを適用
+      for (size_t i = 0; i < sampleCount; i++) {
+        int32_t amplified_sample = (int32_t)samples[i] * SOFTWARE_GAIN;
+        if (amplified_sample > 32767) amplified_sample = 32767;
+        if (amplified_sample < -32768) amplified_sample = -32768;
+        samples[i] = (int16_t)amplified_sample;
+      }
+      
       memcpy(recordBuffer + currentRecordPos, buffer, bytesRead);
       currentRecordPos += bytesRead;
       recordedSize = currentRecordPos;
