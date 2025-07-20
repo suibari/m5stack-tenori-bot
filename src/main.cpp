@@ -151,7 +151,7 @@ void handleTouchRecordingState(bool touchPressed) {
   if (!touchPressed) {
     // タッチ終了 - 録音終了してサーバに送信
     stopRecordingAndSend("stsGoogle");
-  } else if (millis() - recordingStartTime > MAX_RECORDING_TIME) {
+  } else if (millis() - recordingStartTime > MAX_TOUCH_RECORDING_TIME) {
     // 10秒経過 - 自動的に録音終了
     stopRecordingAndSend("stsGoogle");
   }
@@ -164,11 +164,10 @@ void handleVoiceRecordingState(bool touchPressed) {
     // タッチされた場合は優先してタッチ録音モードに移行
     audioManager.stopRecording();
     changeState(STATE_TOUCH_RECORDING);
-  } else if (millis() - recordingStartTime > MAX_RECORDING_TIME) {
-    // 10秒経過 - 録音終了してサーバに送信
+  } else if (millis() - recordingStartTime > MAX_VOICE_RECORDING_TIME) {
+    // 5秒経過 - 録音終了してサーバに送信
     stopRecordingAndSend("stsWhisper");
   }
-  // Note: VADチェックを一時的に無効化（Touch_Recording中の競合を避けるため）
   
   isTouchPressed = touchPressed;
 }

@@ -112,30 +112,27 @@ void VoiceDetector::continuousRecordingTask() {
   size_t bytesRead = 0;
   
   while (isContinuousRecording) {
-    esp_err_t result = i2s_read(I2S_NUM_0, buffer, sizeof(buffer), &bytesRead, portMAX_DELAY);
-    
-    if (result == ESP_OK && bytesRead > 0) {
-      size_t sampleCount = bytesRead / sizeof(int16_t);
-      float currentVolume = calculateVolume(buffer, sampleCount);
+    // voiceDetectedがtrueになったら、状態がリセットされるまでVAD処理を停止
+    if (!voiceDetected) {
+      // Serial.println("DEBUG: VAD loop running, trying to read I2S...");
+      esp_err_t result = i2s_read(I2S_NUM_0, buffer, sizeof(buffer), &bytesRead, portMAX_DELAY);
       
-      averageVolume = (averageVolume * 0.9) + (currentVolume * 0.1);
-      unsigned long currentTime = millis();
-      
-      if (currentVolume > VOICE_THRESHOLD) {
-        if (!voiceDetected) {
-          voiceStartTime = currentTime;
+      if (result != ESP_OK) {
+        Serial.printf("ERROR: i2s_read failed with code: %d\n", result);
+      }
+
+      if (bytesRead > 0) {
+        size_t sampleCount = bytesRead / sizeof(int16_t);
+        float currentVolume = calculateVolume(buffer, sampleCount);
+        
+        averageVolume = (averageVolume * 0.9) + (currentVolume * 0.1);
+        
+        // デバッグ用に現在の音量を表示
+        Serial.printf("Current Volume: %.2f, Bytes Read: %d\n", currentVolume, bytesRead);
+
+        if (currentVolume > VOICE_THRESHOLD) {
           voiceDetected = true;
-          Serial.println("Voice detected - start");
-        }
-        lastVoiceTime = currentTime;
-      } else {
-        if (voiceDetected) {
-          unsigned long silenceDuration = currentTime - lastVoiceTime;
-          unsigned long voiceDuration = currentTime - voiceStartTime;
-          
-          if (silenceDuration > SILENCE_DURATION_MS && voiceDuration > MIN_VOICE_DURATION_MS) {
-            Serial.printf("Voice ended - duration: %lu ms\n", voiceDuration);
-          }
+          Serial.println("Voice detected - VAD triggered");
         }
       }
     }
