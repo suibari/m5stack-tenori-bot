@@ -186,8 +186,9 @@ void NetworkManager::appendToResponseBuffer(const uint8_t* data, size_t size) {
 }
 
 void NetworkManager::initConversation() {
+  WiFiClient client;
   HTTPClient http;
-  http.begin(String(SERVER_URL) + "/initConversation");
+  http.begin(client, String(SERVER_URL) + "/initConversation");
   int response = http.POST("");
   
   if (response == 200) {
