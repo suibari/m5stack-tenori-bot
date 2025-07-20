@@ -66,7 +66,7 @@ void initVoiceRecordingState() {
 
 void initWakeWordRegistrationState() {
     Serial.println("=== Entering WAKEWORD_REGISTRATION state ===");
-    wakeWordManager.stopListening(); // Stop listener before starting registration
+    // I2S will be started/stopped within captureAndRegisterWakeWord()
     M5.Lcd.fillScreen(BLACK);
     M5.Lcd.setCursor(0, 0);
     M5.Lcd.println("Say the wake word...");

@@ -55,8 +55,7 @@ bool WakeWordManager::init() {
     // Set to maximum sensitivity to check if VAD is working at all.
     // This will likely trigger on background noise.
     vadConfig.vad_mode = simplevox::VadMode::Aggression_LV0;
-    vadConfig.decision_time_ms = 20; // Very short time
-    Serial.println("!!! VAD running in MAX SENSITIVITY diagnostic mode !!!");
+    vadConfig.decision_time_ms = 150;
     
     auto mfccConfig = mfccEngine.config();
     mfccConfig.sample_rate = kSampleRate;
@@ -222,12 +221,19 @@ bool WakeWordManager::listenAndDetect() {
 int WakeWordManager::captureAndRegisterWakeWord() {
     M5.Lcd.println("Listening for wake word...");
 
+    // Start I2S listener specifically for registration
+    if (!startListening()) {
+        M5.Lcd.println("Failed to start listener for registration.");
+        return 0;
+    }
+
     // Loop until a single utterance is captured by VAD
     int detectedLength = 0;
     while (detectedLength <= 0) {
         M5.update(); // Update button states etc.
         if (M5.BtnB.wasPressed()) { // Add a cancel button
             M5.Lcd.println("Registration cancelled.");
+            stopListening(); // Stop listener on cancel
             return 0;
         }
 
@@ -276,5 +282,6 @@ int WakeWordManager::captureAndRegisterWakeWord() {
     }
 
     vadEngine.reset();
+    stopListening(); // Stop listener after registration
     return detectedLength;
 }
