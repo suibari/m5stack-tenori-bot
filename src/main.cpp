@@ -56,8 +56,8 @@ void initTouchRecordingState() {
   isTouchPressed = true;
   isVoiceDetected = false;
   
-  voiceDetector.stopContinuousRecording(); // I2S音声を止める
-  uiManager.showHearingScreen();           // I2S画像を表示
+  voiceDetector.stopContinuousRecording(); // VADタスクが終了するまでブロック
+  uiManager.showHearingScreen();
   audioManager.startRecording();
 }
 
@@ -66,7 +66,7 @@ void initVoiceRecordingState() {
   recordingStartTime = millis();
   isVoiceDetected = true;
   
-  voiceDetector.stopContinuousRecording();
+  voiceDetector.stopContinuousRecording(); // VADタスクが終了するまでブロック
   audioManager.startRecording();
   // 常時録音中なので画面は変更しない
 }
@@ -95,6 +95,7 @@ void stopRecordingAndSend(const char* endpoint) {
   
   // 録音停止
   size_t dataSize = audioManager.stopRecording();
+  Serial.printf("DEBUG: Recorded data size: %d bytes\n", dataSize);
   
   if (dataSize > 0) {
     uint8_t* audioData = audioManager.getRecordedData();
@@ -109,6 +110,7 @@ void stopRecordingAndSend(const char* endpoint) {
     changeState(STATE_WAITING_RESPONSE);
   } else {
     // 録音データが無い場合はアイドル状態に戻る
+    Serial.println("ERROR: No recorded data, returning to IDLE state");
     changeState(STATE_IDLE);
   }
 }
@@ -157,17 +159,16 @@ void handleTouchRecordingState(bool touchPressed) {
 
 void handleVoiceRecordingState(bool touchPressed) {
   unsigned long recordingDuration = millis() - recordingStartTime;
-  bool voiceStillDetected = voiceDetector.isVoiceDetected();
 
   if (touchPressed && !isTouchPressed) {
     // タッチされた場合は優先してタッチ録音モードに移行
     audioManager.stopRecording();
     changeState(STATE_TOUCH_RECORDING);
-  } else if (!voiceDetector.isVoiceDetected() || 
-             millis() - recordingStartTime > MAX_RECORDING_TIME) {
-    // 音声終了または10秒経過 - 録音終了してサーバに送信
+  } else if (millis() - recordingStartTime > MAX_RECORDING_TIME) {
+    // 10秒経過 - 録音終了してサーバに送信
     stopRecordingAndSend("stsWhisper");
   }
+  // Note: VADチェックを一時的に無効化（Touch_Recording中の競合を避けるため）
   
   isTouchPressed = touchPressed;
 }

@@ -72,8 +72,12 @@ bool AudioManager::init() {
 }
 
 void AudioManager::startRecording() {
-  if (isRecording) return;
+  if (isRecording) {
+    Serial.println("DEBUG: Already recording, ignoring startRecording()");
+    return;
+  }
   
+  Serial.println("DEBUG: Starting recording...");
   configureI2SForRecording();
   
   recordedSize = 0;
@@ -82,6 +86,7 @@ void AudioManager::startRecording() {
   
   // 録音タスクを作成
   xTaskCreate(recordingTaskWrapper, "RecordingTask", 8192, this, 5, NULL);
+  Serial.println("DEBUG: Recording task created");
 }
 
 size_t AudioManager::stopRecording() {
@@ -133,6 +138,7 @@ bool AudioManager::isPlaying() {
 }
 
 void AudioManager::configureI2SForRecording() {
+  Serial.println("DEBUG: Configuring I2S for recording...");
   i2s_driver_uninstall(I2S_NUM_0);
   
   i2sConfig.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM);
@@ -142,17 +148,22 @@ void AudioManager::configureI2SForRecording() {
 
   esp_err_t result = i2s_driver_install(I2S_NUM_0, &i2sConfig, 0, NULL);
   if (result != ESP_OK) {
-    Serial.printf("I2S driver install failed: %d\n", result);
+    Serial.printf("ERROR: I2S driver install failed: %d\n", result);
     return;
+  } else {
+    Serial.println("DEBUG: I2S driver installed successfully");
   }
   
   result = i2s_set_pin(I2S_NUM_0, &pinConfig);
   if (result != ESP_OK) {
-    Serial.printf("I2S set pin failed: %d\n", result);
+    Serial.printf("ERROR: I2S set pin failed: %d\n", result);
     return;
+  } else {
+    Serial.println("DEBUG: I2S pins configured successfully");
   }
   
   i2s_zero_dma_buffer(I2S_NUM_0);
+  Serial.println("DEBUG: I2S configuration complete");
 }
 
 void AudioManager::configureI2SForPlayback(int sampleRate) {

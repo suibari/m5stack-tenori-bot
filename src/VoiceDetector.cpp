@@ -53,22 +53,25 @@ void VoiceDetector::startContinuousRecording() {
 }
 
 void VoiceDetector::stopContinuousRecording() {
-  if (!isContinuousRecording) return;
-  
-  isContinuousRecording = false;
-  voiceDetected = false;
+  if (!isContinuousRecording || recordingTaskHandle == NULL) return;
 
-  // タスクが生成されていれば削除
+  Serial.println("DEBUG: Requesting VoiceDetectionTask to stop...");
+  isContinuousRecording = false;
+
+  // タスクが自己終了するのを待つ（最大1秒）
+  unsigned long startTime = millis();
+  while (recordingTaskHandle != NULL && millis() - startTime < 1000) {
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+
   if (recordingTaskHandle != NULL) {
+    Serial.println("ERROR: VoiceDetectionTask did not terminate, forcing deletion.");
     vTaskDelete(recordingTaskHandle);
     recordingTaskHandle = NULL;
+    i2s_driver_uninstall(I2S_NUM_0); // フォールバックとしてドライバをアンインストール
+  } else {
+    Serial.println("DEBUG: VoiceDetectionTask stopped successfully.");
   }
-  
-  // I2Sドライバを停止
-  i2s_driver_uninstall(I2S_NUM_0);
-  delay(50); // I2Sリソース解放を待機
-  
-  Serial.println("Continuous voice detection stopped");
 }
 
 bool VoiceDetector::isVoiceDetected() {
@@ -115,13 +118,10 @@ void VoiceDetector::continuousRecordingTask() {
       size_t sampleCount = bytesRead / sizeof(int16_t);
       float currentVolume = calculateVolume(buffer, sampleCount);
       
-      // 移動平均でノイズを軽減
       averageVolume = (averageVolume * 0.9) + (currentVolume * 0.1);
-      
       unsigned long currentTime = millis();
       
       if (currentVolume > VOICE_THRESHOLD) {
-        // 音声検出
         if (!voiceDetected) {
           voiceStartTime = currentTime;
           voiceDetected = true;
@@ -129,28 +129,24 @@ void VoiceDetector::continuousRecordingTask() {
         }
         lastVoiceTime = currentTime;
       } else {
-        // 無音状態
         if (voiceDetected) {
           unsigned long silenceDuration = currentTime - lastVoiceTime;
           unsigned long voiceDuration = currentTime - voiceStartTime;
           
           if (silenceDuration > SILENCE_DURATION_MS && voiceDuration > MIN_VOICE_DURATION_MS) {
-            // 十分な長さの音声の後に無音が続いた場合、音声終了とみなす
             Serial.printf("Voice ended - duration: %lu ms\n", voiceDuration);
-            // voiceDetectedはメインループで参照されるので、ここでは変更しない
           }
         }
       }
-      
-      // デバッグ用（必要に応じてコメントアウト）
-      // Serial.printf("Volume: %.2f, Threshold: %d, Voice: %s\n", 
-      //               currentVolume, VOICE_THRESHOLD, voiceDetected ? "YES" : "NO");
     }
-    
     vTaskDelay(pdMS_TO_TICKS(10));
   }
   
-  // vTaskDelete(NULL); // タスクはstopContinuousRecordingで削除される
+  // クリーンアップ処理
+  i2s_driver_uninstall(I2S_NUM_0);
+  Serial.println("DEBUG: VoiceDetectionTask cleaned up and is exiting.");
+  recordingTaskHandle = NULL; // ハンドルをNULLにしてタスクの終了を通知
+  vTaskDelete(NULL);          // タスク自身を削除
 }
 
 void VoiceDetector::continuousRecordingTaskWrapper(void* param) {
