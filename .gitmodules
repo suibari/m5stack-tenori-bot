@@ -1,0 +1,9 @@
+[submodule "lib/SimpleVox"]
+	path = lib/SimpleVox
+	url = https://github.com/MechaUma/SimpleVox
+[submodule "lib/esp-sr"]
+	path = lib/esp-sr
+	url = https://github.com/espressif/esp-sr
+[submodule "lib/esp-dsp"]
+	path = lib/esp-dsp
+	url = https://github.com/espressif/esp-dsp

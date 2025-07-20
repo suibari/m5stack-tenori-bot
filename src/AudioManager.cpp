@@ -209,7 +209,12 @@ void AudioManager::recordingTask() {
     // }
     // Serial.printf("Sample range: %d ~ %d\n", minSample, maxSample);
 
-    if (result == ESP_OK && bytesRead > 0) {
+    if (result != ESP_OK) {
+      Serial.printf("ERROR (AudioManager): i2s_read failed with code: %d\n", result);
+    }
+
+    if (bytesRead > 0) {
+      // Serial.printf("DEBUG (AudioManager): Read %d bytes\n", bytesRead);
       int16_t* samples = (int16_t*)buffer;
       size_t sampleCount = bytesRead / sizeof(int16_t);
 

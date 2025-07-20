@@ -7,21 +7,22 @@
 #include "AudioManager.h"
 #include "UIManager.h"
 #include "NetworkManager.h"
-#include "VoiceDetector.h"
+#include "WakeWordManager.h"
 #include "config.h"
 #include <loadenv.hpp>
 
-// グローバル変数
+// Global variables
 AudioManager audioManager;
 UIManager uiManager;
 NetworkManager networkManager;
-VoiceDetector voiceDetector;
+WakeWordManager wakeWordManager;
 
-// 状態管理
+// State management
 enum AppState {
   STATE_IDLE,
   STATE_TOUCH_RECORDING,
-  STATE_VOICE_RECORDING,
+  STATE_VOICE_RECORDING, // Re-enabled for wake word response
+  STATE_WAKEWORD_REGISTRATION,
   STATE_WAITING_RESPONSE,
   STATE_PLAYING_RESPONSE
 };
@@ -29,11 +30,9 @@ enum AppState {
 AppState currentState = STATE_IDLE;
 AppState nextState = STATE_IDLE;
 unsigned long recordingStartTime = 0;
-bool isTouchPressed = false;
-bool isVoiceDetected = false;
 bool stateChanged = false;
 
-// 状態遷移を管理する関数
+// --- State Transition ---
 void changeState(AppState newState) {
   if (currentState != newState) {
     nextState = newState;
@@ -41,262 +40,193 @@ void changeState(AppState newState) {
   }
 }
 
-// 各状態の初期化処理
+// --- State Init Functions ---
 void initIdleState() {
   Serial.println("=== Entering IDLE state ===");
   uiManager.showIdleScreen();
-  voiceDetector.startContinuousRecording();
-  isTouchPressed = false;
-  isVoiceDetected = false;
+  wakeWordManager.startListening(); // Start listening for wake word
+  wakeWordManager.reset();
 }
 
 void initTouchRecordingState() {
   Serial.println("=== Entering TOUCH_RECORDING state ===");
+  wakeWordManager.stopListening(); // Stop wake word listener to free I2S
   recordingStartTime = millis();
-  isTouchPressed = true;
-  isVoiceDetected = false;
-  
-  voiceDetector.stopContinuousRecording(); // VADタスクが終了するまでブロック
   uiManager.showHearingScreen();
   audioManager.startRecording();
 }
 
 void initVoiceRecordingState() {
-  Serial.println("=== Entering VOICE_RECORDING state ===");
+  Serial.println("=== Entering VOICE_RECORDING state (after wake word) ===");
+  wakeWordManager.stopListening(); // Stop wake word listener to free I2S
   recordingStartTime = millis();
-  isVoiceDetected = true;
-  
-  voiceDetector.stopContinuousRecording(); // VADタスクが終了するまでブロック
   uiManager.showHearingScreen();
   audioManager.startRecording();
 }
 
+void initWakeWordRegistrationState() {
+    Serial.println("=== Entering WAKEWORD_REGISTRATION state ===");
+    wakeWordManager.stopListening(); // Stop listener before starting registration
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setCursor(0, 0);
+    M5.Lcd.println("Say the wake word...");
+    M5.Lcd.println("(Press Middle Button to cancel)");
+}
+
 void initWaitingResponseState() {
   Serial.println("=== Entering WAITING_RESPONSE state ===");
-  voiceDetector.stopContinuousRecording();
-  uiManager.showThinkingScreen();
+  // The screen is now changed before entering this state.
+  // uiManager.showThinkingScreen();
 }
 
 void initPlayingResponseState() {
   Serial.println("=== Entering PLAYING_RESPONSE state ===");
-  voiceDetector.stopContinuousRecording();
   uiManager.showSpeakingScreen();
   
   size_t responseSize = networkManager.getResponseSize();
   uint8_t* responseData = networkManager.getResponseData();
   
-  // サーバ応答は24000Hz
   audioManager.startPlayback(responseData, responseSize, 24000);
 }
 
-// 録音停止とサーバ送信
+// --- Audio Handling ---
 void stopRecordingAndSend(const char* endpoint) {
   Serial.printf("=== Stopping recording and sending to %s ===\n", endpoint);
   
-  // 録音停止
   size_t dataSize = audioManager.stopRecording();
   Serial.printf("DEBUG: Recorded data size: %d bytes\n", dataSize);
   
   if (dataSize > 0) {
+    // Change to thinking screen immediately after recording stops.
+    uiManager.showThinkingScreen();
+
     uint8_t* audioData = audioManager.getRecordedData();
-    Serial.printf("rawAudioDataSize: %d\n", dataSize);
-
-    // 再生: ユーザタッチ時=Google送信時のみ再生
-    if (String(endpoint) == "stsGoogle") {
-      audioManager.startPlayback(audioData, dataSize, 16000);
-    }
-
     networkManager.sendAudioData(audioData, dataSize, endpoint);
     changeState(STATE_WAITING_RESPONSE);
   } else {
-    // 録音データが無い場合はアイドル状態に戻る
     Serial.println("ERROR: No recorded data, returning to IDLE state");
     changeState(STATE_IDLE);
   }
 }
 
-// 各状態のメイン処理
-void handleIdleState(bool touchPressed) {
-  // デバッグ情報（最初の数秒だけ）
-  static unsigned long lastDebugTime = 0;
-  if (millis() - lastDebugTime > 2000) {
-    Serial.printf("IDLE: touch=%d, voice=%d\n", 
-                  touchPressed, voiceDetector.isVoiceDetected());
-    lastDebugTime = millis();
+// --- State Handler Functions ---
+void handleIdleState() {
+  // Listen for wake word. Button presses are handled in the main loop.
+  if (wakeWordManager.listenAndDetect()) {
+    // Wake word detected, start voice recording
+    changeState(STATE_VOICE_RECORDING);
   }
-  
-  // STATE_IDLEでのみVADが有効
-  if (touchPressed && !isTouchPressed) {
-    // タッチ開始 - タッチ録音モードに移行
-    changeState(STATE_TOUCH_RECORDING);
-  } else if (!touchPressed) {
-    // 常時録音での音声検出
-    if (voiceDetector.isVoiceDetected()) {
-      if (!isVoiceDetected) {
-        // 音声検出開始
-        changeState(STATE_VOICE_RECORDING);
-      }
-    } else {
-      isVoiceDetected = false;
-    }
-  }
-  
-  isTouchPressed = touchPressed;
 }
 
-void handleTouchRecordingState(bool touchPressed) {
+void handleTouchRecordingState() {
   unsigned long recordingDuration = millis() - recordingStartTime;
-  Serial.printf("Touch recording: duration=%lu ms, touch=%d\n", recordingDuration, touchPressed);
-
-  if (!touchPressed) {
-    // タッチ終了 - 録音終了してサーバに送信
-    stopRecordingAndSend("stsGoogle");
-  } else if (millis() - recordingStartTime > MAX_TOUCH_RECORDING_TIME) {
-    // 10秒経過 - 自動的に録音終了
+  
+  // Stop recording if button is released OR timeout is reached
+  if (!M5.BtnA.isPressed() || recordingDuration > MAX_TOUCH_RECORDING_TIME) {
     stopRecordingAndSend("stsGoogle");
   }
 }
 
-void handleVoiceRecordingState(bool touchPressed) {
+void handleVoiceRecordingState() {
   unsigned long recordingDuration = millis() - recordingStartTime;
 
-  if (touchPressed && !isTouchPressed) {
-    // タッチされた場合は優先してタッチ録音モードに移行
-    audioManager.stopRecording();
-    changeState(STATE_TOUCH_RECORDING);
-  } else if (millis() - recordingStartTime > MAX_VOICE_RECORDING_TIME) {
-    // 5秒経過 - 録音終了してサーバに送信
+  // Stop recording after a fixed time, or if a button is tapped to interrupt
+  if (recordingDuration > MAX_VOICE_RECORDING_TIME) {
+    stopRecordingAndSend("stsWhisper");
+  } else if (M5.BtnA.wasPressed() || M5.BtnB.wasPressed() || M5.BtnC.wasPressed()) {
     stopRecordingAndSend("stsWhisper");
   }
-  
-  isTouchPressed = touchPressed;
+}
+
+void handleWakeWordRegistrationState() {
+    int capturedLength = wakeWordManager.captureAndRegisterWakeWord();
+
+    if (capturedLength > 0) {
+        M5.Lcd.println("Registration successful!");
+    } else {
+        M5.Lcd.println("Registration failed or cancelled.");
+    }
+    delay(2000);
+    changeState(STATE_IDLE);
 }
 
 void handleWaitingResponseState() {
-  // デバッグ情報
-  static unsigned long lastStatusTime = 0;
-  if (millis() - lastStatusTime > 1000) {
-    Serial.printf("Waiting: ready=%d, error=%d\n", 
-                  networkManager.isResponseReady(), networkManager.hasError());
-    lastStatusTime = millis();
-  }
-
-  // NetworkManagerがレスポンスを処理中
   if (networkManager.isResponseReady()) {
-    // レスポンス受信完了 - 再生開始
     changeState(STATE_PLAYING_RESPONSE);
   } else if (networkManager.hasError()) {
-    // エラー時
     changeState(STATE_IDLE);
   }
 }
 
 void handlePlayingResponseState() {
-  bool stillPlaying = audioManager.isPlaying();
-  static unsigned long lastPlaybackStatus = 0;
-  if (millis() - lastPlaybackStatus > 500) {
-    Serial.printf("Playing response: still_playing=%d\n", stillPlaying);
-    lastPlaybackStatus = millis();
-  }
-
   if (!audioManager.isPlaying()) {
-    // 再生終了 - アイドル状態に戻る
     changeState(STATE_IDLE);
   }
 }
 
-// ---------------------
-// main: setup & loop
-// ---------------------
+// --- Main Setup & Loop ---
 void setup() {
   M5.begin();
   Serial.begin(115200);
-  
   Serial.println("=== Bot-tan Starting ===");
 
-  // SPIFFS初期化
-  if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS Mount Failed");
-    return;
-  }
-  
-  // WiFi接続
   SPIFFS.begin(true);
+  
   auto env = loadEnv("/.env");
   std::string ssid = env["WIFI_SSID"];
   std::string password = env["WIFI_PASSWORD"];
   networkManager.connectWiFi(ssid.c_str(), password.c_str());
   
-  // 各モジュール初期化
   audioManager.init();
   uiManager.init();
-  voiceDetector.init();
+  if (!wakeWordManager.init()) {
+      M5.Lcd.println("WakeWordManager Init Failed!");
+      while(1) delay(100);
+  }
   
-  // スピーカー起動
   M5.Axp.SetSpkEnable(true);
-
-  // 会話削除
   networkManager.initConversation();
 
-  // 初期状態に設定（初期化処理は最初のループで実行される）
+  // Directly set and initialize the first state
   currentState = STATE_IDLE;
-  nextState = STATE_IDLE;
-  stateChanged = true;
-
-  Serial.println("=== Bot-tan initialized successfully ===");
+  initIdleState();
 }
 
 void loop() {
   M5.update();
   
-  // 状態変更があった場合の初期化処理
+  // Handle state changes first
   if (stateChanged) {
     currentState = nextState;
     stateChanged = false;
     
     switch (currentState) {
-      case STATE_IDLE:
-        initIdleState();
-        break;
-      case STATE_TOUCH_RECORDING:
-        initTouchRecordingState();
-        break;
-      case STATE_VOICE_RECORDING:
-        initVoiceRecordingState();
-        break;
-      case STATE_WAITING_RESPONSE:
-        initWaitingResponseState();
-        break;
-      case STATE_PLAYING_RESPONSE:
-        initPlayingResponseState();
-        break;
+      case STATE_IDLE: initIdleState(); break;
+      case STATE_TOUCH_RECORDING: initTouchRecordingState(); break;
+      case STATE_VOICE_RECORDING: initVoiceRecordingState(); break;
+      case STATE_WAKEWORD_REGISTRATION: initWakeWordRegistrationState(); break;
+      case STATE_WAITING_RESPONSE: initWaitingResponseState(); break;
+      case STATE_PLAYING_RESPONSE: initPlayingResponseState(); break;
     }
   }
   
-  // タッチ状態チェック
-  bool touchPressed = M5.Touch.ispressed();
-  
-  // 状態に応じた処理
+  // Handle triggers from IDLE state
+  if (currentState == STATE_IDLE) {
+    if (M5.BtnA.wasPressed()) {
+      changeState(STATE_TOUCH_RECORDING);
+    } else if (M5.BtnC.wasPressed()) {
+      changeState(STATE_WAKEWORD_REGISTRATION);
+    }
+  }
+
+  // Execute current state's handler
   switch (currentState) {
-    case STATE_IDLE:
-      handleIdleState(touchPressed);
-      break;
-      
-    case STATE_TOUCH_RECORDING:
-      handleTouchRecordingState(touchPressed);
-      break;
-      
-    case STATE_VOICE_RECORDING:
-      handleVoiceRecordingState(touchPressed);
-      break;
-      
-    case STATE_WAITING_RESPONSE:
-      handleWaitingResponseState();
-      break;
-      
-    case STATE_PLAYING_RESPONSE:
-      handlePlayingResponseState();
-      break;
+    case STATE_IDLE: handleIdleState(); break;
+    case STATE_TOUCH_RECORDING: handleTouchRecordingState(); break;
+    case STATE_VOICE_RECORDING: handleVoiceRecordingState(); break;
+    case STATE_WAKEWORD_REGISTRATION: handleWakeWordRegistrationState(); break;
+    case STATE_WAITING_RESPONSE: handleWaitingResponseState(); break;
+    case STATE_PLAYING_RESPONSE: handlePlayingResponseState(); break;
   }
   
   delay(10);

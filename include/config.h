@@ -10,7 +10,9 @@
 
 // 音声検出設定
 #define SOFTWARE_GAIN 2.0 // マイクのソフトウェアゲイン（増幅率）
-#define VOICE_DETECTION_THRESHOLD 3300 // 音声検出の閾値。この値より大きい音を検出すると録音開始: 常時3100~3200くらい
+#define VAD_MODE 3 // VADの感度(0:高感度, 4:低感度). ノイズを拾ってしまう場合は数値を上げる
+#define VAD_DECISION_TIME_MS 150 // このミリ秒以上音声が続いたら「発話」と判断する
+#define VOICE_DETECTION_THRESHOLD 3300 // DTWの閾値。この値より大きい音を検出すると録音開始: 常時3100~3200くらい
 
 // デバッグ設定
 #define DEBUG_VOICE_DETECTION false
