@@ -28,6 +28,10 @@ void UIManager::showHearingScreen() {
   changeScreen(SCREEN_HEARING, "/hearing.jpg");
 }
 
+void UIManager::showNoticeScreen() {
+  changeScreen(SCREEN_NOTICE, "/notice.jpg");
+}
+
 void UIManager::showThinkingScreen() {
   changeScreen(SCREEN_THINKING, "/thinking.jpg");
 }

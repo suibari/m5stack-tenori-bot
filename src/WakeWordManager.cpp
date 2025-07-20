@@ -52,9 +52,7 @@ bool WakeWordManager::init() {
     vadConfig.sample_rate = kSampleRate;
     
     // --- VAD Sensitivity Diagnostics ---
-    // Set to maximum sensitivity to check if VAD is working at all.
-    // This will likely trigger on background noise.
-    vadConfig.vad_mode = simplevox::VadMode::Aggression_LV0;
+    vadConfig.vad_mode = simplevox::VadMode::Aggression_LV2;
     vadConfig.decision_time_ms = 150;
     
     auto mfccConfig = mfccEngine.config();
@@ -231,11 +229,7 @@ int WakeWordManager::captureAndRegisterWakeWord() {
     int detectedLength = 0;
     while (detectedLength <= 0) {
         M5.update(); // Update button states etc.
-        if (M5.BtnB.wasPressed()) { // Add a cancel button
-            M5.Lcd.println("Registration cancelled.");
-            stopListening(); // Stop listener on cancel
-            return 0;
-        }
+        // Button B check is now handled globally in main.cpp loop()
 
         auto* frameData = readMicFrame();
         if (frameData == nullptr) {

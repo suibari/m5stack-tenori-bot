@@ -8,6 +8,7 @@ private:
   enum ScreenState {
     SCREEN_IDLE,
     SCREEN_HEARING,
+    SCREEN_NOTICE,
     SCREEN_THINKING, 
     SCREEN_SPEAKING,
     SCREEN_INIT // 起動時
@@ -22,6 +23,7 @@ public:
   bool init();
   void showIdleScreen();
   void showHearingScreen();
+  void showNoticeScreen();
   void showThinkingScreen();
   void showSpeakingScreen();
   

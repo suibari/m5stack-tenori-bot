@@ -60,7 +60,7 @@ void initVoiceRecordingState() {
   Serial.println("=== Entering VOICE_RECORDING state (after wake word) ===");
   wakeWordManager.stopListening(); // Stop wake word listener to free I2S
   recordingStartTime = millis();
-  uiManager.showHearingScreen();
+  uiManager.showNoticeScreen();
   audioManager.startRecording();
 }
 
@@ -195,6 +195,28 @@ void setup() {
 void loop() {
   M5.update();
   
+  // Global B button check for cancelling any state and returning to IDLE
+  if (M5.BtnB.wasPressed()) {
+    Serial.println("Button B pressed: Cancelling current operation and returning to IDLE.");
+    switch (currentState) {
+      case STATE_TOUCH_RECORDING:
+      case STATE_VOICE_RECORDING:
+        audioManager.stopRecording();
+        break;
+      case STATE_PLAYING_RESPONSE:
+        audioManager.stopPlayback();
+        break;
+      case STATE_IDLE: // If in IDLE, just reset wake word manager
+        wakeWordManager.reset();
+        break;
+      case STATE_WAKEWORD_REGISTRATION: // Handled by global state change
+      case STATE_WAITING_RESPONSE: // No specific stop needed, just transition
+        break;
+    }
+    changeState(STATE_IDLE);
+    return; // Exit current loop iteration to allow state change to take effect
+  }
+
   // Handle state changes first
   if (stateChanged) {
     currentState = nextState;
